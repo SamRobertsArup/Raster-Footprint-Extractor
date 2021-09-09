@@ -19,4 +19,3 @@ method:
  4) if neighbours are exhausted and conditions are not met, the footprint has been extracted 
 
 Forewarning: It's slow and there are some odd currently unexplained behavoirs in the path it draws such as:
-![Screenshot2](images/odd3.png)
