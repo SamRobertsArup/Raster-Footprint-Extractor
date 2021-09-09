@@ -10,9 +10,9 @@ method:
     \#0#\
     \###\
     - Must have 1 or more data pixel adjacent by a flat side:\
-    \o#o\
+    o#o\
     \#0#\
-    \o#o\
+    o#o\
     - Must not have vistied the pixel before
  3) if the 3 conditons are satisfied move to this pixel and repeat step 2
  4) if neighbours are exhausted and conditions are not met, the footprint has been extracted 
