@@ -7,13 +7,14 @@ method:
 2) Check neighbouring pixels in a clockwise fashion for 3 conditions:
     - Must have 1 or more no data pixel adjacent by a flat side or vertex: \
     \###\
-    \#0#\
+    \#X#\
     \###
     - Must have 1 or more data pixel adjacent by a flat side:\
     o#o\
-    \#0#\
+    \#X#\
     o#o
-    - Must not have vistied the pixel before
+    - Must not have vistied the pixel before\
+    (X = pixel, # = data pixel neighbour, o = no data pixel neighbour)
  3) if the 3 conditons are satisfied move to this pixel and repeat step 2
  4) if neighbours are exhausted and conditions are not met, the footprint has been extracted 
 
