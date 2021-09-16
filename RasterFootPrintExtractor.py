@@ -3,18 +3,43 @@ import gdal
 import osr
 from shapely.geometry import Polygon, Point
 from shapely import affinity
+import math
 
 import pandas as pd
 import geopandas as gpd
 
 raster_path = r"C:\dev\Raster Preparer and ML Vectoriser\tifs\test_tif_utm30N.tif"
-out_path = r"C:\dev\Raster Preparer and ML Vectoriser\tifs\polygonised2.shp"
+out_path = r"C:\dev\Raster Preparer and ML Vectoriser\tifs\polygonised.shp"
 
 raster = gdal.Open(raster_path)
 dst_crs = 'EPSG:'+str(osr.SpatialReference(wkt=raster.GetProjection()).GetAttrValue('AUTHORITY',1))
 xoff, a, b, yoff, d, e = raster.GetGeoTransform()
 
 
+# todo this should be placed in a function
+# check if raster in UTM system. Re-projects if not.
+if not dst_crs.split(":")[1].startswith('0') or not dst_crs.split(":")[1].startswith('326') or not dst_crs.split(":")[1].startswith('327'):
+    determineUTMtif = None
+    utm_band = str((math.floor((xoff + 180) / 6) % 60) + 1)
+    if len(utm_band) == 1:
+        utm_band = '0' + utm_band
+    if yoff >= 0:
+        epsg_code = '326' + utm_band
+    else:
+        epsg_code = '327' + utm_band
+    dst_crs = 'EPSG:' + str(epsg_code)
+    outputESPG = ''.join(ch for ch in dst_crs if ch.isalnum())
+
+    # re-project
+    print("Reprojecting tif into " + dst_crs)
+    reprojected_raster_path = "\\".join(raster_path.split(".")[:-1]) + "_reprojected.tif"
+    gdal.Warp(reprojected_raster_path, raster_path, format="GTiff", options=["COMPRESS=LZW", "TILED=YES"], dstSRS=dst_crs)
+
+    # open new shiny UTM raster
+    del raster
+    raster = gdal.Open(reprojected_raster_path)
+    dst_crs = 'EPSG:' + str(osr.SpatialReference(wkt=raster.GetProjection()).GetAttrValue('AUTHORITY', 1))
+    xoff, a, b, yoff, d, e = raster.GetGeoTransform()
 
 
 def outputSinglePixel(pxl):
