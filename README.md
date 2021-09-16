@@ -1,5 +1,5 @@
 # Raster-Footprint-Extractor
-extracts vector polygon of populated data in a raster using Moore-Neighbor Tracing
+Extracts vector polygon of populated data in a raster using Moore-Neighbor Tracing
 ![Extracted!](images/extracted.png)
 
 
