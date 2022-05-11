@@ -9,20 +9,20 @@ import pandas as pd
 import geopandas as gpd
 
 class RasterFootPrintExtractor():
-    def __init__(self, raster_path, out_path, output_CAD=False):
-
+    def __init__(self, raster_path, out_path, no_data=0, output_CAD=False):
+        self.result = None
         self.out_path = out_path
         self.output_CAD = output_CAD
         self.raster = gdal.Open(raster_path)
         self.dst_crs = int(osr.SpatialReference(wkt=self.raster.GetProjection()).GetAttrValue('AUTHORITY',1))  # 'EPSG:'+str(osr.SpatialReference(wkt=self.raster.GetProjection()).GetAttrValue('AUTHORITY',1))
         self.xoff, self.a, self.b, self.yoff, self.d, self.e = self.raster.GetGeoTransform()
-
         # check if raster in UTM system. Re-projects if not.
         # todo this should be placed in a function
         if not (
                 str(self.dst_crs).startswith('0')
             or  str(self.dst_crs).startswith('326')
             or  str(self.dst_crs).startswith('327')
+            or  str(self.dst_crs).startswith("27700")
         ):
             utm_band = str((math.floor((self.xoff + 180) / 6) % 60) + 1)
             if len(utm_band) == 1:
@@ -44,7 +44,15 @@ class RasterFootPrintExtractor():
             self.dst_crs =  int(osr.SpatialReference(wkt=raster.GetProjection()).GetAttrValue('AUTHORITY', 1))  # 'EPSG:' + str(osr.SpatialReference(wkt=raster.GetProjection()).GetAttrValue('AUTHORITY', 1))
             self.xoff, self.a, self.b, self.yoff, self.d, self.e = raster.GetGeoTransform()
 
-        self.arr = self.getFlatArray()
+        imarray = np.array(self.raster.ReadAsArray())
+        if self.raster.GetRasterBand(self.raster.RasterCount).GetNoDataValue() is None:
+            self.no_data = no_data * imarray.shape[0]
+        elif no_data != 0:
+            self.no_data = no_data * imarray.shape[0]
+        else:
+            self.no_data = self.raster.GetRasterBand(self.raster.RasterCount).GetNoDataValue() * imarray.shape[0]
+
+        self.arr = imarray.sum(axis=0)  # flattened array
         self.boundary = self.MooresBoundaryTrace()
 
         self.pnts = [self.pixel2point(pxl) for pxl in self.boundary]
@@ -82,21 +90,13 @@ class RasterFootPrintExtractor():
                 geoDF.to_file(self.out_path.replace(".shp", ".dxf"), driver='DXF')
             except Exception:
                 pass
-
-    def getFlatArray(self):
-        # flattens raster bands into one array
-        imarray = np.array(self.raster.ReadAsArray())
-        flattenedarray = imarray[0]
-        for i in range(1, imarray.shape[0]):
-            flattenedarray = np.add(flattenedarray, imarray[i])
-
-        return flattenedarray
+        self.result = geoDF
 
     def getStartingPixel(self):
         # Scan the array until a pixel containing data is found
         for x in range(0, self.arr.shape[0] - 1):  # this is wrong its y,x but confusing to change
             for y in range(0, self.arr.shape[1] - 1):
-                if self.arr[x, y] != 0:
+                if self.arr[x, y] != self.no_data:
                     starting_pixel = (x, y)
                     entry_pixel = (x, y-1)
                     return starting_pixel, entry_pixel
@@ -124,7 +124,7 @@ class RasterFootPrintExtractor():
             check_x, check_y = curr_x + moores_neighbs[moores_idx][0], curr_y + moores_neighbs[moores_idx][1]
 
             # if within array and contains data set as boundary
-            if check_x >= 0 and check_y >= 0 and check_x < self.arr.shape[0] and check_y < self.arr.shape[1] and self.arr[check_x][check_y] != 0:
+            if check_x >= 0 and check_y >= 0 and check_x < self.arr.shape[0] and check_y < self.arr.shape[1] and self.arr[check_x][check_y] != self.no_data:
                 curr_x, curr_y = check_x, check_y
                 d_x, d_y = prev_x - curr_x, prev_y - curr_y
                 moores_idx = moores_neighbs.index((d_x, d_y))
